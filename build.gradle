@@ -1,0 +1,140 @@
+plugins {
+    id 'biz.aQute.bnd.builder' version '3.3.0'
+}
+
+sourceCompatibility = '1.8'
+version = '20.12'
+
+repositories {
+    maven { url "https://repo.dotcms.com/artifactory/libs-release" }
+}
+configurations {
+    osgiLibs
+}
+
+dependencies {
+    compile  ('com.dotcms:dotcms:5.3.8') 
+    testCompile 'junit:junit:4.12'
+}
+
+
+import java.util.jar.*
+
+/////////////////////////
+//Plugin jar
+/////////////////////////
+jar {
+    manifest {
+        attributes (
+                'Bundle-Vendor': 'dotCMS',
+                'Bundle-Description': 'dotCMS - Token Login Auth',
+                'Bundle-DocURL': 'https://dotcms.com/',
+                'Bundle-Activator': 'com.dotcms.tokenlogin.auth.Activator',
+                'Bundle-ClassPath' : "${classPathLibraries()}",
+                'Import-Package': '*;version=0'
+        )
+    }
+}
+
+
+task cleanLibFiles(type: Delete) {
+    delete fileTree("src/main/resources/libs").matching {
+        include "**/*"
+    }
+}
+
+task copyToLib(type: Copy) {
+    from configurations.osgiLibs
+    into "src/main/resources/libs"
+    
+}
+
+
+compileJava.dependsOn copyToLib
+
+
+jar.finalizedBy 'fragmentJar'
+
+def classPathLibraries() {
+
+    def bundleClassPath = "";
+    fileTree("src/main/resources/libs").filter { it.isFile() }.each { bundleClassPath += "libs/" + it.name + "," }
+
+    if (bundleClassPath != "") {
+        bundleClassPath = '.,' + bundleClassPath
+    }
+
+    return bundleClassPath
+}
+
+
+/////////////////////////
+//Fragment jar
+/////////////////////////
+
+ext {
+    bundleName = "TokenLogin  fragment"
+    bundleDescription = "dotCMS - TokenLogin  fragment"
+    fragmentHost = "system.bundle; extension:=framework"
+    bundleSymbolicName = "" //Auto generated based on the plugin jar
+    bundleVersion = "" //Auto generated based on the plugin jar
+    importPackage = "" //Auto generated based on the plugin jar
+    bundleManifestVersion = "" //Auto generated based on the plugin jar
+    bundleDocURL = "" //Auto generated based on the plugin jar
+    bundleVendor = "" //Auto generated based on the plugin jar
+}
+/**
+ * The import generates versions like this: version="[1.8,2)"
+ * That format does not work for the export, so we need to replace it
+ * to: version=0
+ */
+ext.fixVersionNumber = {importValue ->
+    return importValue.replaceAll("\"\\[[0-9.,]+\\)\"", "0")
+}
+
+/**
+ * Reads the Manifest file of the just created plugin jar in order to get the required info
+ * to automatically create the fragment jar.
+ */
+task readManifesttAttributes {
+    doFirst {
+        File file = configurations.baseline.singleFile
+        JarFile jar = new JarFile(file)
+        Attributes manifest = jar.getManifest().getMainAttributes()
+        bundleSymbolicName = "${manifest.getValue('Bundle-SymbolicName')}"
+        bundleVersion = "${manifest.getValue('Bundle-Version')}"
+        importPackage = "${manifest.getValue('Import-Package')}"
+        bundleManifestVersion = "${manifest.getValue('Bundle-ManifestVersion')}"
+        bundleDocURL = "${manifest.getValue('Bundle-DocURL')}"
+        bundleVendor = "${manifest.getValue('Bundle-Vendor')}"
+    }
+}
+task fragmentJar(type: Jar) {
+
+    doFirst {
+        //Setting the fragment jar name
+        baseName = project.name
+        archiveName = "${baseName}.fragment-${version}.jar"
+        importPackage = fixVersionNumber(importPackage)
+
+        manifest {
+            attributes (
+                    'Bundle-Name': "${bundleName}",
+                    'Bundle-Description': "${bundleDescription}",
+                    'Bundle-Vendor': "${bundleVendor}",
+                    'Bundle-Version': "${version}",
+                    'Bundle-SymbolicName': "${baseName}.fragment",
+                    'Bundle-ManifestVersion': "${bundleManifestVersion}",
+                    'Bundle-DocURL': "${bundleDocURL}",
+                    'Fragment-Host': "${fragmentHost}",
+                    'Export-Package': "${importPackage}"
+            )
+        }
+    }
+}
+fragmentJar.dependsOn 'readManifesttAttributes'
+
+tasks.copyToLib.execute()
+task wrapper(type: Wrapper) {
+    gradleVersion = '4.2'
+}
