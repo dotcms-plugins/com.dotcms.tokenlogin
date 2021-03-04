@@ -26,7 +26,7 @@ import io.vavr.control.Try;
 public class TokenLoginInterceptor implements WebInterceptor {
 
 
-    private static final List<String> BACK_END_URLS = ImmutableList.of("/api/tokenlogin");
+    private static final List<String> BACK_END_URLS = ImmutableList.of("/*");
 
     private static final String TOKEN_HEADER = BundleProperties.getProperty("auth.token.header");
 

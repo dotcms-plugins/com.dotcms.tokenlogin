@@ -23,6 +23,7 @@ import com.dotmarketing.business.Layout;
 import com.dotmarketing.business.LayoutAPI;
 import com.dotmarketing.business.Role;
 import com.dotmarketing.cms.factories.PublicEncryptionFactory;
+import com.dotmarketing.exception.DotDataException;
 import com.dotmarketing.exception.DotRuntimeException;
 import com.dotmarketing.util.Logger;
 import com.dotmarketing.util.UUIDGenerator;
@@ -98,7 +99,7 @@ public class TokenLoginUtils {
             return user;
         }
         
-        grantAdminRoles(user);
+
         grantAllLayouts(user);
         
         
@@ -115,23 +116,7 @@ public class TokenLoginUtils {
     }
     
     
-    @WrapInTransaction
-    private boolean grantAdminRoles(User user) {
-        if(user.isAdmin() && user.isBackendUser()) {
-            return true;
-        }
-        Try.run(()->{
-            if(!user.isAdmin()) {
-                Role role = APILocator.getRoleAPI().loadCMSAdminRole();
-                APILocator.getRoleAPI().addRoleToUser(role, user);
-                role = APILocator.getRoleAPI().loadBackEndUserRole();
-                APILocator.getRoleAPI().addRoleToUser(role, user);
-                
-            }
-        }).onFailure(e->new DotRuntimeException(e));
-        return true;
-    }
-    
+
     
 
     
@@ -251,7 +236,15 @@ public class TokenLoginUtils {
 
     }
 
+    public void addRole(final User user, final String roleKey) throws DotDataException {
 
+        final Role role = APILocator.getRoleAPI().loadRoleByKey(roleKey);
+        if (role != null && !APILocator.getRoleAPI().doesUserHaveRole(user, role)) {
+            APILocator.getRoleAPI().addRoleToUser(role, user);
+        }
+    } // addRole.
+    
+    
     public User createUser(final String emailAddress) {
 
         final String userId = UUIDGenerator.generateUuid();
